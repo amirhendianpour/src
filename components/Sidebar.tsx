@@ -17,7 +17,6 @@ interface SidebarProps {
   activeGroupId: number | null;
   onSelectGroup: (group: GroupInfo) => void;
   onCreateGroup: (name: string) => void;
-  onRefreshGroups: () => void;
   onDeleteGroup: (groupId: number) => void;
 }
 
@@ -32,7 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeGroupId,
   onSelectGroup,
   onCreateGroup,
-  onRefreshGroups,
   onDeleteGroup
 }) => {
 
@@ -65,15 +63,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="text-red-500 hover:text-red-700 text-sm bg-red-50 px-3 py-1 rounded-full transition"
         >
           خروج ({myUsername})
-        </button>
-      </div>
-
-      <div className="p-3 border-b border-gray-200 bg-white">
-        <button
-          onClick={onRefreshGroups}
-          className="mt-2 w-full text-xs text-gray-500 hover:text-blue-600 transition"
-        >
-          🔄 بروزرسانی لیست گروه‌ها
         </button>
       </div>
 

@@ -10,7 +10,7 @@ import { createGroup, getUserGroups, deleteGroup as deleteGroupApi } from './ser
 import type { GroupInfo } from './services/groupService';
 
 const App: React.FC = () => {
-  const { connect, isConnected, disconnect, messages, subscribeToGroups } = useWebSocket();
+  const { connect, isConnected, disconnect, messages, groupUpdateEvent } = useWebSocket();
 
   const [token, setToken] = useState<string | null>(localStorage.getItem('chat_token'));
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
@@ -52,10 +52,15 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isConnected && groups.length > 0) {
-      subscribeToGroups(groups.map(g => g.id));
+    if (!groupUpdateEvent) return;
+
+    handleRefreshGroups();
+
+    // اگه همین الان داشتیم همون گروهِ حذف‌شده رو نگاه می‌کردیم، خارج شو
+    if (groupUpdateEvent.type === "DELETED" && activeGroup?.id === groupUpdateEvent.groupId) {
+      setActiveGroup(null);
     }
-  }, [isConnected, groups]);
+  }, [groupUpdateEvent]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -78,9 +83,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (token) {
       handleRefreshGroups();
-      getUserGroups()
-        .then(setGroups)
-        .catch(err => console.error('خطا در دریافت گروه‌ها:', err));
     }
   }, [token]);
 
@@ -156,7 +158,6 @@ const App: React.FC = () => {
         activeGroupId={activeGroup?.id ?? null}
         onSelectGroup={handleSelectGroup}
         onCreateGroup={handleCreateGroup}
-        onRefreshGroups={handleRefreshGroups}
         onDeleteGroup={handleDeleteGroup}
       />
 

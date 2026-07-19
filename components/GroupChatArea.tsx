@@ -12,28 +12,15 @@ interface Props {
 }
 
 const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
-
-    const { groupMessages, subscribeToGroups, sendGroupMessage } = useWebSocket();
-
+    const { groupMessages, sendGroupMessage } = useWebSocket();
     const [text, setText] = useState("");
     const [newMember, setNewMember] = useState("");
     const [showAddMember, setShowAddMember] = useState(false);
-
     const bottomRef = useRef<HTMLDivElement | null>(null);
-
     const username = localStorage.getItem("chat_username") || "";
 
-    // هر بار گروه فعال عوض شد، وارد کانال جدید بشو
     useEffect(() => {
-
-        subscribeToGroups([activeGroup.id]);
-
-    }, [activeGroup.id]);
-
-    useEffect(() => {
-
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-
     }, [groupMessages]);
 
     const chatMessages = groupMessages.filter(
@@ -41,19 +28,13 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
     );
 
     const handleSend = () => {
-
         if (!text.trim()) return;
-
         sendGroupMessage(activeGroup.id, text);
-
         setText("");
-
     };
 
     const handleAddMember = async () => {
-
         if (!newMember.trim()) return;
-
         try {
             await addMemberToGroup(activeGroup.id, newMember.trim());
             alert(`کاربر ${newMember.trim()} به گروه اضافه شد.`);
@@ -72,26 +53,21 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
     };
 
     return (
-
         <div className="flex-1 flex flex-col bg-[#efeae2] h-full" dir="rtl">
-
             {/* Header */}
             <div className="h-16 bg-white border-b flex items-center justify-between px-5 shadow-sm">
-
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-300 rounded-full flex items-center justify-center text-green-700 font-bold">
                         {activeGroup.name.charAt(0)}
                     </div>
                     <span className="font-bold text-gray-800">{activeGroup.name}</span>
                 </div>
-
                 <button
                     onClick={() => setShowAddMember(prev => !prev)}
                     className="text-sm text-blue-600 hover:text-blue-800"
                 >
                     + افزودن عضو
                 </button>
-
             </div>
 
             {showAddMember && (
@@ -114,11 +90,8 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
-
                 {chatMessages.map((msg) => {
-
                     const mine = msg.sender === username;
-
                     return (
                         <div key={msg.id} className={`flex ${mine ? "justify-start" : "justify-end"}`}>
                             <div
@@ -140,11 +113,8 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
                             </div>
                         </div>
                     );
-
                 })}
-
                 <div ref={bottomRef} />
-
             </div>
 
             {/* Input */}
@@ -166,10 +136,8 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
                     ارسال
                 </button>
             </div>
-
         </div>
     );
-
 };
 
 export default GroupChatArea;

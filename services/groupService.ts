@@ -35,7 +35,7 @@ export async function createGroup(name: string): Promise<GroupInfo> {
 
     const data = await response.json();
 
-    return { id: data.id, name: data.name };
+    return { id: data.id, name: data.name, role: 'ADMIN' };
 
 }
 
