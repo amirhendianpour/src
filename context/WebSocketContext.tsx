@@ -1,10 +1,4 @@
-import React, {
-    createContext,
-    useContext,
-    useRef,
-    useState,
-    ReactNode
-} from "react";
+import React, { createContext, useContext, useRef, useState, ReactNode, useEffect } from "react";
 
 import type { IMessage } from "@stomp/stompjs";
 import websocketService from "../services/websocketService";
@@ -14,6 +8,15 @@ import type { TypingEvent } from "../types/Typing";
 import type { GroupMessage } from "../types/GroupMessage";
 import type { GroupUpdateEvent } from "../types/GroupUpdateEvent";
 import { generateId } from "../utils/generateId";
+import { mergeById } from "../utils/mergeById";
+
+import {
+    savePrivateMessage,
+    updatePrivateMessageStatus,
+    getAllPrivateMessages,
+    saveGroupMessage,
+    getAllGroupMessages
+} from "../db/chatDB";
 
 interface ContextType {
     isConnected:boolean;
@@ -67,6 +70,8 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
                     return [...prev, msg];
                 });
 
+                savePrivateMessage(msg);
+
                 if (msg.sender !== username) {
                     const receipt: Receipt = {
                         messageId: msg.id,
@@ -86,6 +91,7 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
                 setMessages(prev =>
                     prev.map(m => m.id === receipt.messageId ? { ...m, status: receipt.status } : m)
                 );
+                updatePrivateMessageStatus(receipt.messageId, receipt.status);
             });
 
             // ۳. تایپینگ
@@ -106,6 +112,7 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
                     if (exists) return prev;
                     return [...prev, msg];
                 });
+                saveGroupMessage(msg);
             });
 
             // ۵. پیام‌های لایو گروه (این جدیده)
@@ -116,6 +123,7 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
                     if (exists) return prev;
                     return [...prev, msg];
                 });
+                saveGroupMessage(msg);
             });
 
             // ۶. اطلاع اضافه‌شدن به گروه جدید (این هم جدیده)
@@ -161,6 +169,8 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
         };
 
         setMessages(prev=>[...prev,msg]);
+        savePrivateMessage(msg);
+
         client.publish({
             destination:"/app/chat",
             body:JSON.stringify(msg)
@@ -206,6 +216,8 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
 
         // چون بک‌اند دیگه پیام رو به خود فرستنده برنمی‌گردونه، همینجا نمایشش می‌دیم
         setGroupMessages(prev => [...prev, msg]);
+        saveGroupMessage(msg);
+
         client.publish({
             destination: "/app/group/chat",
             body: JSON.stringify({
@@ -215,6 +227,18 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
             })
         });
     };
+
+    useEffect(() => {
+        if (!username) return;
+
+        (async () => {
+            const storedPrivate = await getAllPrivateMessages();
+            setMessages(prev => mergeById(prev, storedPrivate));
+
+            const storedGroup = await getAllGroupMessages();
+            setGroupMessages(prev => mergeById(prev, storedGroup));
+        })();
+    }, [username]);
 
     return(
         <WebSocketContext.Provider

@@ -6,6 +6,7 @@ import GroupChatArea from './components/GroupChatArea';
 import CallOverlay from './components/CallOverlay';
 import Login from './components/Login';
 import Register from './components/Register';
+import { resetChatDBConnection } from './db/chatDB';
 import { createGroup, getUserGroups, deleteGroup as deleteGroupApi } from './services/groupService';
 import type { GroupInfo } from './services/groupService';
 
@@ -63,13 +64,20 @@ const App: React.FC = () => {
   }, [groupUpdateEvent]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.sender !== myUsername && !chatList.includes(lastMsg.sender)) {
-        setChatList(prev => [lastMsg.sender, ...prev]);
-      }
-    }
-  }, [messages, chatList, myUsername]);
+    if (!myUsername) return;
+
+    const partners = new Set<string>();
+    messages.forEach(m => {
+        const partner = m.sender === myUsername ? m.recipient : m.sender;
+        if (partner) partners.add(partner);
+    });
+
+    setChatList(prev => {
+        const merged = new Set(prev);
+        partners.forEach(p => merged.add(p));
+        return Array.from(merged);
+    });
+  }, [messages, myUsername]);
 
   useEffect(() => {
     if (token) {
@@ -102,6 +110,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('chat_token');
     localStorage.removeItem('chat_username');
+    resetChatDBConnection();
     setToken(null);
     setMyUsername(null);
     disconnect();

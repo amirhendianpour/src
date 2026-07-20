@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWebSocket } from "../context/WebSocketContext";
 import { addMemberToGroup } from "../services/groupService";
+import { compareByTime } from "../utils/sortMessages";
 
 interface GroupInfo {
     id: number;
@@ -23,9 +24,9 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [groupMessages]);
 
-    const chatMessages = groupMessages.filter(
-        (msg) => msg.groupId === activeGroup.id
-    );
+    const chatMessages = groupMessages
+        .filter((msg) => msg.groupId === activeGroup.id)
+        .sort(compareByTime);
 
     const handleSend = () => {
         if (!text.trim()) return;

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useWebSocket } from "../context/WebSocketContext";
 import MessageInput from "./MessageInput";
+import { compareByTime } from "../utils/sortMessages";
 
 interface Message {
   id: string;
@@ -41,11 +42,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
 
 
   const chatMessages =
-    messages.filter(
-      (msg:Message)=>
-        msg.sender===activeChat ||
-        msg.recipient===activeChat
-    );
+    messages
+        .filter((msg:Message)=> msg.sender===activeChat || msg.recipient===activeChat)
+        .sort(compareByTime);
 
 
   // ارسال رسید تحویل فقط برای پیام‌های دریافتی از طرف مقابلِ چت فعال
