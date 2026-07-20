@@ -9,8 +9,10 @@ import Register from './components/Register';
 import { resetChatDBConnection } from './db/chatDB';
 import { createGroup, getUserGroups, deleteGroup as deleteGroupApi } from './services/groupService';
 import type { GroupInfo } from './services/groupService';
+import { useCall } from './context/CallContext';
 
 const App: React.FC = () => {
+  const { startCall } = useCall();
   const { connect, isConnected, disconnect, messages, groupUpdateEvent } = useWebSocket();
 
   const [token, setToken] = useState<string | null>(localStorage.getItem('chat_token'));
@@ -173,7 +175,7 @@ const App: React.FC = () => {
       {activeChat ? (
         <ChatArea
           activeChat={activeChat}
-          onCallClick={() => setIsCallActive(true)}
+          onCallClick={() => startCall(activeChat)}
         />
       ) : activeGroup ? (
         <GroupChatArea activeGroup={activeGroup} />
@@ -184,15 +186,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-
-      {activeChat && (
-        <CallOverlay
-          isOpen={isCallActive}
-          chatName={activeChat}
-          onClose={() => setIsCallActive(false)}
-        />
-      )}
-
+      <CallOverlay />
     </div>
   );
 };

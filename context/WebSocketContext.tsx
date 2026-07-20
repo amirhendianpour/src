@@ -9,6 +9,7 @@ import type { GroupMessage } from "../types/GroupMessage";
 import type { GroupUpdateEvent } from "../types/GroupUpdateEvent";
 import { generateId } from "../utils/generateId";
 import { mergeById } from "../utils/mergeById";
+import type { CallSignal } from "../types/Call";
 
 import {
     savePrivateMessage,
@@ -30,6 +31,8 @@ interface ContextType {
     sendTyping:(recipient:string,isTyping:boolean)=>void;
     sendReceipt:(receipt:Receipt)=>void;
     sendGroupMessage:(groupId:string|number,content:string)=>void;
+    sendCallSignal:(signal:CallSignal)=>void;
+    onCallSignal:(cb:(signal:CallSignal)=>void)=>()=>void;
 }
 
 const WebSocketContext=createContext<ContextType|null>(null);
@@ -46,6 +49,32 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
     // یک Map از groupId به subscription، تا هم‌زمان به چند گروه وصل باشیم
     const groupSubscriptionsRef=useRef<Map<number,{unsubscribe:()=>void}>>(new Map());
     const username=localStorage.getItem("chat_username")||"";
+
+    const callListenersRef = useRef<Set<(signal: CallSignal) => void>>(new Set());
+
+    const onCallSignal = (cb: (signal: CallSignal) => void) => {
+        callListenersRef.current.add(cb);
+        return () => callListenersRef.current.delete(cb);
+    };
+
+    const sendCallSignal = (signal: CallSignal) => {
+        const client = clientRef.current.getClient();
+        if (!client?.connected) return;
+
+        const destinationMap: Record<string, string> = {
+            OFFER: "/app/call/offer",
+            ANSWER: "/app/call/answer",
+            ICE_CANDIDATE: "/app/call/ice-candidate",
+            END: "/app/call/end",
+            REJECT: "/app/call/reject"
+        };
+
+        client.publish({
+            destination: destinationMap[signal.type],
+            body: JSON.stringify(signal)
+        });
+    };
+
     const connect=(token:string)=>{
         if(connectedRef.current)
             return;
@@ -130,6 +159,11 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
             client.subscribe("/user/queue/group-updates", (message: IMessage) => {
                 const event: GroupUpdateEvent = JSON.parse(message.body);
                 setGroupUpdateEvent(event);
+            });
+
+            client.subscribe("/user/queue/call", (message) => {
+                const signal: CallSignal = JSON.parse(message.body);
+                callListenersRef.current.forEach(cb => cb(signal));
             });
 
             client.publish({
@@ -253,7 +287,9 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
                 sendMessage,
                 sendTyping,
                 sendReceipt,
-                sendGroupMessage
+                sendGroupMessage,
+                sendCallSignal,
+                onCallSignal
             }}
         >
             {children}
