@@ -66,7 +66,8 @@ export const WebSocketProvider=({children}:{children:ReactNode})=>{
             ANSWER: "/app/call/answer",
             ICE_CANDIDATE: "/app/call/ice-candidate",
             END: "/app/call/end",
-            REJECT: "/app/call/reject"
+            REJECT: "/app/call/reject",
+            BUSY: "/app/call/reject"
         };
 
         client.publish({

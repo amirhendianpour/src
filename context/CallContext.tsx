@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useRef, useState, useEffect, ReactNode } from "react";
 import { useWebSocket } from "./WebSocketContext";
-import type { CallSignal, CallStatus } from "../types/Call";
+import type { CallSignal, CallStatus, CallKind } from "../types/Call";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -11,14 +11,18 @@ const ICE_SERVERS: RTCConfiguration = {
 
 interface CallContextType {
     callStatus: CallStatus;
+    callType: CallKind | null;
     remoteUser: string | null;
     isMuted: boolean;
+    isCameraOff: boolean;
+    localStream: MediaStream | null;
     remoteStream: MediaStream | null;
-    startCall: (recipient: string) => Promise<void>;
+    startCall: (recipient: string, callType?: CallKind) => Promise<void>;
     acceptCall: () => Promise<void>;
     rejectCall: () => void;
     endCall: () => void;
     toggleMute: () => void;
+    toggleCamera: () => void;
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -27,8 +31,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     const { onCallSignal, sendCallSignal } = useWebSocket();
 
     const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+    const [callType, setCallType] = useState<CallKind | null>(null);
     const [remoteUser, setRemoteUser] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(false);
+    const [isCameraOff, setIsCameraOff] = useState(false);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
@@ -37,18 +43,22 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     const pendingOfferRef = useRef<CallSignal | null>(null);
     const iceQueueRef = useRef<RTCIceCandidateInit[]>([]);
     const statusRef = useRef<CallStatus>("idle");
+    const localStreamRef = useRef<MediaStream | null>(null);
 
     useEffect(() => { statusRef.current = callStatus; }, [callStatus]);
 
     const cleanup = () => {
         pcRef.current?.close();
         pcRef.current = null;
-        localStream?.getTracks().forEach(t => t.stop());
+        localStreamRef.current?.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
         setLocalStream(null);
         setRemoteStream(null);
         setRemoteUser(null);
         setCallStatus("idle");
+        setCallType(null);
         setIsMuted(false);
+        setIsCameraOff(false);
         callIdRef.current = "";
         pendingOfferRef.current = null;
         iceQueueRef.current = [];
@@ -79,22 +89,28 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         return pc;
     };
 
-    const attachLocalStream = async (pc: RTCPeerConnection) => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    // withVideo مشخص می‌کند آیا track ویدیو هم گرفته شود یا فقط صدا
+    const attachLocalStream = async (pc: RTCPeerConnection, withVideo: boolean) => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: withVideo ? { facingMode: "user" } : false
+        });
+        localStreamRef.current = stream;
         setLocalStream(stream);
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
         return stream;
     };
 
-    const startCall = async (recipient: string) => {
+    const startCall = async (recipient: string, kind: CallKind = "AUDIO") => {
         if (statusRef.current !== "idle") return;
 
         callIdRef.current = crypto.randomUUID();
         setRemoteUser(recipient);
+        setCallType(kind);
         setCallStatus("calling");
 
         const pc = createPeerConnection(recipient);
-        await attachLocalStream(pc);
+        await attachLocalStream(pc, kind === "VIDEO");
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -103,7 +119,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
             type: "OFFER",
             to: recipient,
             sdp: JSON.stringify(offer),
-            callId: callIdRef.current
+            callId: callIdRef.current,
+            callType: kind
         });
     };
 
@@ -111,8 +128,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         const offerSignal = pendingOfferRef.current;
         if (!offerSignal?.from || !offerSignal.sdp) return;
 
+        const kind: CallKind = offerSignal.callType === "VIDEO" ? "VIDEO" : "AUDIO";
+
         const pc = createPeerConnection(offerSignal.from);
-        await attachLocalStream(pc);
+        await attachLocalStream(pc, kind === "VIDEO");
         await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerSignal.sdp)));
 
         for (const c of iceQueueRef.current) {
@@ -127,7 +146,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
             type: "ANSWER",
             to: offerSignal.from,
             sdp: JSON.stringify(answer),
-            callId: callIdRef.current
+            callId: callIdRef.current,
+            callType: kind
         });
 
         setCallStatus("connected");
@@ -147,9 +167,17 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const toggleMute = () => {
-        if (!localStream) return;
-        localStream.getAudioTracks().forEach(track => { track.enabled = !track.enabled; });
+        if (!localStreamRef.current) return;
+        localStreamRef.current.getAudioTracks().forEach(track => { track.enabled = !track.enabled; });
         setIsMuted(prev => !prev);
+    };
+
+    const toggleCamera = () => {
+        if (!localStreamRef.current) return;
+        const videoTracks = localStreamRef.current.getVideoTracks();
+        if (videoTracks.length === 0) return;
+        videoTracks.forEach(track => { track.enabled = !track.enabled; });
+        setIsCameraOff(prev => !prev);
     };
 
     useEffect(() => {
@@ -157,12 +185,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
             switch (signal.type) {
                 case "OFFER":
                     if (statusRef.current !== "idle") {
-                        sendCallSignal({ type: "REJECT", to: signal.from!, callId: signal.callId });
+                        sendCallSignal({ type: "BUSY", to: signal.from!, callId: signal.callId });
                         return;
                     }
                     callIdRef.current = signal.callId;
                     pendingOfferRef.current = signal;
                     setRemoteUser(signal.from || null);
+                    setCallType(signal.callType === "VIDEO" ? "VIDEO" : "AUDIO");
                     setCallStatus("ringing");
                     break;
 
@@ -196,8 +225,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
     return (
         <CallContext.Provider value={{
-            callStatus, remoteUser, isMuted, remoteStream,
-            startCall, acceptCall, rejectCall, endCall, toggleMute
+            callStatus, callType, remoteUser, isMuted, isCameraOff, localStream, remoteStream,
+            startCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera
         }}>
             {children}
         </CallContext.Provider>

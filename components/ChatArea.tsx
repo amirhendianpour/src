@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useWebSocket } from "../context/WebSocketContext";
 import MessageInput from "./MessageInput";
 import { compareByTime } from "../utils/sortMessages";
+import type { CallKind } from "../types/Call";
 
 interface Message {
   id: string;
@@ -16,7 +17,7 @@ interface Message {
 
 interface ChatAreaProps {
   activeChat: string | null;
-  onCallClick: () => void;
+  onCallClick: (callType: CallKind) => void;
 }
 
 const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
@@ -139,12 +140,22 @@ const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
         </div>
 
         {activeChat && (
-          <button
-            onClick={onCallClick}
-            className="p-2 bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition"
-          >
-            📞
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onCallClick("AUDIO")}
+              className="p-2 bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition"
+              title="تماس صوتی"
+            >
+              📞
+            </button>
+            <button
+              onClick={() => onCallClick("VIDEO")}
+              className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition"
+              title="تماس تصویری"
+            >
+              🎥
+            </button>
+          </div>
         )}
       </div>
 

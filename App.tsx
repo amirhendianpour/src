@@ -10,6 +10,7 @@ import { resetChatDBConnection } from './db/chatDB';
 import { createGroup, getUserGroups, deleteGroup as deleteGroupApi } from './services/groupService';
 import type { GroupInfo } from './services/groupService';
 import { useCall } from './context/CallContext';
+import type { CallKind } from './types/Call';
 
 const App: React.FC = () => {
   const { startCall } = useCall();
@@ -175,7 +176,7 @@ const App: React.FC = () => {
       {activeChat ? (
         <ChatArea
           activeChat={activeChat}
-          onCallClick={() => startCall(activeChat)}
+          onCallClick={(callType: CallKind) => startCall(activeChat, callType)}
         />
       ) : activeGroup ? (
         <GroupChatArea activeGroup={activeGroup} />
