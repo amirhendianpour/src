@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { saveAuthSession } from './hooks/useAuth';
+import OtpVerify from './components/OtpVerify';
+import type { AuthResponse } from './types/Auth';
 import { useWebSocket } from './context/WebSocketContext';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
@@ -11,13 +14,25 @@ import { createGroup, getUserGroups, deleteGroup as deleteGroupApi } from './ser
 import type { GroupInfo } from './services/groupService';
 import { useCall } from './context/CallContext';
 import type { CallKind } from './types/Call';
+import { getDisplayName as getMyDisplayName } from './hooks/useAuth';
 
 const App: React.FC = () => {
   const { startCall } = useCall();
   const { connect, isConnected, disconnect, messages, groupUpdateEvent } = useWebSocket();
 
+  const [myDisplayName, setMyDisplayName] = useState<string | null>(getMyDisplayName());
+  const [authView, setAuthView] = useState<'login' | 'register' | 'otp'>('login');
+  const [pendingIdentifier, setPendingIdentifier] = useState<string>('');
+
+  const handleAuthSuccess = (auth: AuthResponse) => {
+    const displayName = `${auth.firstName} ${auth.lastName}`.trim();
+    saveAuthSession(auth.token, auth.username, displayName);
+    setToken(auth.token);
+    setMyUsername(auth.username);
+    setMyDisplayName(displayName);
+  };
+
   const [token, setToken] = useState<string | null>(localStorage.getItem('chat_token'));
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [myUsername, setMyUsername] = useState<string | null>(localStorage.getItem('chat_username'));
 
   const [chatList, setChatList] = useState<string[]>([]);
@@ -113,9 +128,11 @@ const App: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('chat_token');
     localStorage.removeItem('chat_username');
+    localStorage.removeItem('chat_display_name');
     resetChatDBConnection();
     setToken(null);
     setMyUsername(null);
+    setMyDisplayName(null);
     disconnect();
   };
 
@@ -137,17 +154,33 @@ const App: React.FC = () => {
     if (authView === 'login') {
       return (
         <Login
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={handleAuthSuccess}
           onSwitchToRegister={() => setAuthView('register')}
-        />
-      );
-    } else {
-      return (
-        <Register
-          onSwitchToLogin={() => setAuthView('login')}
+          onOtpRequested={(identifier) => {
+            setPendingIdentifier(identifier);
+            setAuthView('otp');
+          }}
         />
       );
     }
+    if (authView === 'register') {
+      return (
+        <Register
+          onSwitchToLogin={() => setAuthView('login')}
+          onRegistered={(identifier) => {
+            setPendingIdentifier(identifier);
+            setAuthView('otp');
+          }}
+        />
+      );
+    }
+    return (
+      <OtpVerify
+        identifier={pendingIdentifier}
+        onVerified={handleAuthSuccess}
+        onBack={() => setAuthView('login')}
+      />
+    );
   }
 
   return (
@@ -165,6 +198,7 @@ const App: React.FC = () => {
         chatList={chatList}
         onAddNewChat={handleAddNewChat}
         myUsername={myUsername}
+        myDisplayName={myDisplayName}
         onLogout={handleLogout}
         groups={groups}
         activeGroupId={activeGroup?.id ?? null}

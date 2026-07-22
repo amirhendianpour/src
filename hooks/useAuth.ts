@@ -1,11 +1,9 @@
-export const getToken=()=>{
+export const getToken = () => localStorage.getItem("chat_token");
+export const getUsername = () => localStorage.getItem("chat_username");
+export const getDisplayName = () => localStorage.getItem("chat_display_name");
 
-    return localStorage.getItem("chat_token");
-
-}
-
-export const getUsername=()=>{
-
-    return localStorage.getItem("chat_username");
-
+export function saveAuthSession(token: string, username: string, displayName: string) {
+    localStorage.setItem("chat_token", token);
+    localStorage.setItem("chat_username", username);
+    localStorage.setItem("chat_display_name", displayName);
 }

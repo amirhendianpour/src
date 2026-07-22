@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWebSocket } from "../context/WebSocketContext";
 import { addMemberToGroup } from "../services/groupService";
 import { compareByTime } from "../utils/sortMessages";
+import { useUserDirectory } from '../context/UserDirectoryContext';
+import { lookupUser } from '../services/userService';
 
 interface GroupInfo {
     id: number;
@@ -13,7 +15,31 @@ interface Props {
 }
 
 const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
+    const { getDisplayName, ensureLoaded, setUserInfo } = useUserDirectory();
     const { groupMessages, sendGroupMessage } = useWebSocket();
+    const chatMessages = groupMessages
+        .filter((msg) => msg.groupId === activeGroup.id)
+        .sort(compareByTime);
+
+    const senderKey = Array.from(new Set(chatMessages.map(m => m.sender).filter(Boolean))).join(',');
+    useEffect(() => {
+    if (senderKey) ensureLoaded(senderKey.split(','));
+    }, [senderKey, ensureLoaded]);
+
+    const handleAddMember = async () => {
+    if (!newMember.trim()) return;
+    try {
+        const user = await lookupUser(newMember.trim());
+        setUserInfo(user);
+        await addMemberToGroup(activeGroup.id, user.username);
+        alert(`${user.firstName} ${user.lastName} به گروه اضافه شد.`);
+        setNewMember('');
+        setShowAddMember(false);
+    } catch (err: any) {
+        alert('خطا: ' + err.message);
+    }
+    };
+
     const [text, setText] = useState("");
     const [newMember, setNewMember] = useState("");
     const [showAddMember, setShowAddMember] = useState(false);
@@ -24,26 +50,10 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [groupMessages]);
 
-    const chatMessages = groupMessages
-        .filter((msg) => msg.groupId === activeGroup.id)
-        .sort(compareByTime);
-
     const handleSend = () => {
         if (!text.trim()) return;
         sendGroupMessage(activeGroup.id, text);
         setText("");
-    };
-
-    const handleAddMember = async () => {
-        if (!newMember.trim()) return;
-        try {
-            await addMemberToGroup(activeGroup.id, newMember.trim());
-            alert(`کاربر ${newMember.trim()} به گروه اضافه شد.`);
-            setNewMember("");
-            setShowAddMember(false);
-        } catch (err: any) {
-            alert("خطا: " + err.message);
-        }
     };
 
     const formatTime = (timestamp?: string) => {
@@ -104,7 +114,7 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
                             >
                                 {!mine && (
                                     <div className="text-xs font-bold text-blue-600 mb-1">
-                                        {msg.sender}
+                                        {getDisplayName(msg.sender || '')}
                                     </div>
                                 )}
                                 <div>{msg.content}</div>

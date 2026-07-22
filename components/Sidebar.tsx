@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useUserDirectory } from '../context/UserDirectoryContext';
+import { lookupUser } from '../services/userService';
 
 interface GroupInfo {
   id: number;
@@ -12,6 +14,7 @@ interface SidebarProps {
   chatList: string[];
   onAddNewChat: (user: string) => void;
   myUsername: string | null;
+  myDisplayName: string | null;
   onLogout: () => void;
   groups: GroupInfo[];
   activeGroupId: number | null;
@@ -26,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   chatList,
   onAddNewChat,
   myUsername,
+  myDisplayName,
   onLogout,
   groups,
   activeGroupId,
@@ -33,18 +37,35 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateGroup,
   onDeleteGroup
 }) => {
+  const { getDisplayName, ensureLoaded, setUserInfo } = useUserDirectory();
+  const [lookupError, setLookupError] = useState('');
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  useEffect(() => {
+    if (chatList.length > 0) ensureLoaded(chatList);
+  }, [chatList.join(','), ensureLoaded]);
+
+  const handleStartChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLookupError('');
+    if (!newChatInput.trim()) return;
+
+    setIsLookingUp(true);
+    try {
+      const user = await lookupUser(newChatInput.trim());
+      setUserInfo(user);
+      onAddNewChat(user.username);
+      setNewChatInput('');
+    } catch (err: any) {
+      setLookupError(err.message);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
 
   const [newChatInput, setNewChatInput] = useState('');
   const [newGroupInput, setNewGroupInput] = useState('');
   const [tab, setTab] = useState<'chats' | 'groups'>('chats');
-
-  const handleStartChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newChatInput.trim()) {
-      onAddNewChat(newChatInput.trim());
-      setNewChatInput('');
-    }
-  };
 
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={onLogout}
           className="text-red-500 hover:text-red-700 text-sm bg-red-50 px-3 py-1 rounded-full transition"
         >
-          خروج ({myUsername})
+          خروج ({myDisplayName})
         </button>
       </div>
 
@@ -94,14 +115,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 type="text"
                 value={newChatInput}
                 onChange={(e) => setNewChatInput(e.target.value)}
-                placeholder="نام کاربری برای شروع چت..."
+                placeholder="شماره موبایل یا ایمیل مخاطب..."
                 className="flex-1 p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500 text-sm"
                 dir="ltr"
               />
-              <button type="submit" className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition">
-                + چت
+              <button type="submit" disabled={isLookingUp} className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition disabled:bg-blue-300">
+                {isLookingUp ? '...' : '+ چت'}
               </button>
             </form>
+            {lookupError && <p className="text-red-500 text-xs mt-2 text-center">{lookupError}</p>}
           </div>
 
           <div className="overflow-y-auto flex-1 p-2">
@@ -117,10 +139,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg uppercase shadow-sm">
-                    {chatUser.charAt(0)}
+                    {getDisplayName(chatUser).charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800">{chatUser}</h3>
+                    <h3 className="font-semibold text-gray-800">{getDisplayName(chatUser)}</h3>
                     <p className="text-xs text-green-500">آنلاین</p>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { useWebSocket } from "../context/WebSocketContext";
 import MessageInput from "./MessageInput";
 import { compareByTime } from "../utils/sortMessages";
 import type { CallKind } from "../types/Call";
+import { useUserDirectory } from '../context/UserDirectoryContext';
 
 interface Message {
   id: string;
@@ -21,6 +22,11 @@ interface ChatAreaProps {
 }
 
 const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
+  const { getDisplayName, ensureLoaded } = useUserDirectory();
+
+  useEffect(() => {
+    if (activeChat) ensureLoaded([activeChat]);
+  }, [activeChat, ensureLoaded]);
 
   const {
     messages,
@@ -132,10 +138,10 @@ const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
         className="h-16 bg-white border-b flex items-center justify-between px-5 shadow-sm" >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
-            {activeChat ? activeChat.charAt(0) : "?"}
+            {activeChat ? getDisplayName(activeChat).charAt(0) : "?"}
           </div>
           <span className="font-bold text-gray-800">
-            {activeChat ? activeChat : "یک گفتگو انتخاب کنید"}
+            {activeChat ? getDisplayName(activeChat) : "یک گفتگو انتخاب کنید"}
           </span>
         </div>
 
