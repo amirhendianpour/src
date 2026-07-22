@@ -76,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-1/3 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="w-full bg-white border-l border-gray-200 flex flex-col h-full">
       <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-800">پیام‌رسان من</h1>
         <button

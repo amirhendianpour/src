@@ -12,9 +12,10 @@ interface GroupInfo {
 
 interface Props {
     activeGroup: GroupInfo;
+    onBack?: () => void;
 }
 
-const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
+const GroupChatArea: React.FC<Props> = ({ activeGroup, onBack }) => {
     const { getDisplayName, ensureLoaded, setUserInfo } = useUserDirectory();
     const { groupMessages, sendGroupMessage } = useWebSocket();
     const chatMessages = groupMessages
@@ -67,17 +68,23 @@ const GroupChatArea: React.FC<Props> = ({ activeGroup }) => {
         <div className="flex-1 flex flex-col bg-[#efeae2] h-full" dir="rtl">
             {/* Header */}
             <div className="h-16 bg-white border-b flex items-center justify-between px-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-300 rounded-full flex items-center justify-center text-green-700 font-bold">
-                        {activeGroup.name.charAt(0)}
-                    </div>
-                    <span className="font-bold text-gray-800">{activeGroup.name}</span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                {onBack && (
+                    <button
+                    onClick={onBack}
+                    className="md:hidden p-2 -ml-1 text-gray-600 hover:text-gray-900 text-xl"
+                    aria-label="بازگشت به لیست"
+                    >
+                    →
+                    </button>
+                )}
+                <div className="w-10 h-10 bg-green-300 rounded-full flex items-center justify-center text-green-700 font-bold">
+                    {activeGroup.name.charAt(0)}
                 </div>
-                <button
-                    onClick={() => setShowAddMember(prev => !prev)}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                    + افزودن عضو
+                <span className="font-bold text-gray-800">{activeGroup.name}</span>
+                </div>
+                <button onClick={() => setShowAddMember(prev => !prev)} className="text-sm text-blue-600 hover:text-blue-800">
+                + افزودن عضو
                 </button>
             </div>
 

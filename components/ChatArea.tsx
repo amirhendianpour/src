@@ -19,9 +19,10 @@ interface Message {
 interface ChatAreaProps {
   activeChat: string | null;
   onCallClick: (callType: CallKind) => void;
+  onBack?: () => void;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick, onBack }) => {
   const { getDisplayName, ensureLoaded } = useUserDirectory();
 
   useEffect(() => {
@@ -134,9 +135,17 @@ const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
 
       {/* Header */}
 
-      <div
-        className="h-16 bg-white border-b flex items-center justify-between px-5 shadow-sm" >
-        <div className="flex items-center gap-3">
+      <div className="h-16 bg-white border-b flex items-center justify-between px-5 shadow-sm" >
+        <div className="flex items-center gap-2 sm:gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="md:hidden p-2 -ml-1 text-gray-600 hover:text-gray-900 text-xl"
+              aria-label="بازگشت به لیست"
+            >
+              →
+            </button>
+          )}
           <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
             {activeChat ? getDisplayName(activeChat).charAt(0) : "?"}
           </div>
@@ -144,7 +153,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ activeChat, onCallClick }) => {
             {activeChat ? getDisplayName(activeChat) : "یک گفتگو انتخاب کنید"}
           </span>
         </div>
-
         {activeChat && (
           <div className="flex items-center gap-2">
             <button

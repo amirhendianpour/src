@@ -19,11 +19,10 @@ import { getDisplayName as getMyDisplayName } from './hooks/useAuth';
 const App: React.FC = () => {
   const { startCall } = useCall();
   const { connect, isConnected, disconnect, messages, groupUpdateEvent } = useWebSocket();
-
   const [myDisplayName, setMyDisplayName] = useState<string | null>(getMyDisplayName());
   const [authView, setAuthView] = useState<'login' | 'register' | 'otp'>('login');
   const [pendingIdentifier, setPendingIdentifier] = useState<string>('');
-
+  
   const handleAuthSuccess = (auth: AuthResponse) => {
     const displayName = `${auth.firstName} ${auth.lastName}`.trim();
     saveAuthSession(auth.token, auth.username, displayName);
@@ -31,16 +30,17 @@ const App: React.FC = () => {
     setMyUsername(auth.username);
     setMyDisplayName(displayName);
   };
-
+  
   const [token, setToken] = useState<string | null>(localStorage.getItem('chat_token'));
   const [myUsername, setMyUsername] = useState<string | null>(localStorage.getItem('chat_username'));
-
+  
   const [chatList, setChatList] = useState<string[]>([]);
   const [activeChat, setActiveChatState] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState<boolean>(false);
-
+  
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [activeGroup, setActiveGroup] = useState<GroupInfo | null>(null);
+  const isChatOpen = Boolean(activeChat || activeGroup);
 
   const handleAddNewChat = (username: string) => {
     if (!chatList.includes(username)) {
@@ -192,35 +192,46 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <Sidebar
-        activeChat={activeChat}
-        setActiveChat={setActiveChat}
-        chatList={chatList}
-        onAddNewChat={handleAddNewChat}
-        myUsername={myUsername}
-        myDisplayName={myDisplayName}
-        onLogout={handleLogout}
-        groups={groups}
-        activeGroupId={activeGroup?.id ?? null}
-        onSelectGroup={handleSelectGroup}
-        onCreateGroup={handleCreateGroup}
-        onDeleteGroup={handleDeleteGroup}
-      />
-
-      {activeChat ? (
-        <ChatArea
+      {/* لیست چت‌ها: در موبایل فقط وقتی گفتگویی باز نیست دیده می‌شود */}
+      <div className={`${isChatOpen ? 'hidden' : 'flex'} md:flex w-full md:w-1/3 h-full`}>
+        <Sidebar
           activeChat={activeChat}
-          onCallClick={(callType: CallKind) => startCall(activeChat, callType)}
+          setActiveChat={setActiveChat}
+          chatList={chatList}
+          onAddNewChat={handleAddNewChat}
+          myUsername={myUsername}
+          myDisplayName={myDisplayName}
+          onLogout={handleLogout}
+          groups={groups}
+          activeGroupId={activeGroup?.id ?? null}
+          onSelectGroup={handleSelectGroup}
+          onCreateGroup={handleCreateGroup}
+          onDeleteGroup={handleDeleteGroup}
         />
-      ) : activeGroup ? (
-        <GroupChatArea activeGroup={activeGroup} />
-      ) : (
-        <div className="w-2/3 flex flex-col items-center justify-center bg-[#efeae2]">
-          <div className="bg-white/60 px-6 py-3 rounded-full text-gray-500 shadow-sm">
-            برای شروع چت، یک مخاطب یا گروه را از لیست انتخاب کنید
+      </div>
+
+      {/* پنل گفتگو: در موبایل فقط وقتی چت/گروهی انتخاب شده دیده می‌شود */}
+      <div className={`${isChatOpen ? 'flex' : 'hidden'} md:flex flex-1 w-full h-full`}>
+        {activeChat ? (
+          <ChatArea
+            activeChat={activeChat}
+            onCallClick={(callType: CallKind) => startCall(activeChat, callType)}
+            onBack={() => setActiveChatState(null)}
+          />
+        ) : activeGroup ? (
+          <GroupChatArea
+            activeGroup={activeGroup}
+            onBack={() => setActiveGroup(null)}
+          />
+        ) : (
+          <div className="w-full flex flex-col items-center justify-center bg-[#efeae2]">
+            <div className="bg-white/60 px-6 py-3 rounded-full text-gray-500 shadow-sm">
+              برای شروع چت، یک مخاطب یا گروه را از لیست انتخاب کنید
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
       <CallOverlay />
     </div>
   );
