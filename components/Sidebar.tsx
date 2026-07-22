@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUserDirectory } from '../context/UserDirectoryContext';
+import { useWebSocket } from '../context/WebSocketContext';
 import { lookupUser } from '../services/userService';
 
 interface GroupInfo {
@@ -40,6 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { getDisplayName, ensureLoaded, setUserInfo } = useUserDirectory();
   const [lookupError, setLookupError] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const { messages, groupMessages } = useWebSocket();
 
   useEffect(() => {
     if (chatList.length > 0) ensureLoaded(chatList);
@@ -63,9 +65,48 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  // آخرین زمان پیام برای یک چت خصوصی خاص
+  const getLastMessageTime = (chatUser: string): string => {
+    let latest = '';
+    messages.forEach(m => {
+      if ((m.sender === chatUser || m.recipient === chatUser) && m.timestamp && m.timestamp > latest) {
+        latest = m.timestamp;
+      }
+    });
+    return latest;
+  };
+
+  // آخرین زمان پیام برای یک گروه خاص
+  const getLastGroupMessageTime = (groupId: number): string => {
+    let latest = '';
+    groupMessages.forEach(m => {
+      if (m.groupId === groupId && m.timestamp && m.timestamp > latest) {
+        latest = m.timestamp;
+      }
+    });
+    return latest;
+  };
+
+  type CombinedItem =
+    | { type: 'chat'; key: string; user: string; time: string }
+    | { type: 'group'; key: string; group: GroupInfo; time: string };
+
+  // ترکیب چت‌های خصوصی و گروه‌ها + مرتب‌سازی نزولی بر اساس آخرین زمان پیام
+  const combinedList: CombinedItem[] = useMemo(() => {
+    const items: CombinedItem[] = [
+      ...chatList.map((u): CombinedItem => ({
+        type: 'chat', key: `chat-${u}`, user: u, time: getLastMessageTime(u)
+      })),
+      ...groups.map((g): CombinedItem => ({
+        type: 'group', key: `group-${g.id}`, group: g, time: getLastGroupMessageTime(g.id)
+      }))
+    ];
+    return items.sort((a, b) => b.time.localeCompare(a.time));
+  }, [chatList, groups, messages, groupMessages]);
+
   const [newChatInput, setNewChatInput] = useState('');
   const [newGroupInput, setNewGroupInput] = useState('');
-  const [tab, setTab] = useState<'chats' | 'groups'>('chats');
+  const [tab, setTab] = useState<'all' | 'chats' | 'groups'>('all');
 
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +131,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* تب‌ها */}
       <div className="flex border-b border-gray-200">
         <button
+          onClick={() => setTab('all')}
+          className={`flex-1 py-2 text-sm font-semibold transition ${
+            tab === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'
+          }`}
+        >
+          همه
+        </button>
+        <button
           onClick={() => setTab('chats')}
           className={`flex-1 py-2 text-sm font-semibold transition ${
             tab === 'chats' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'
@@ -107,7 +156,49 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {tab === 'chats' ? (
+      {tab === 'all' ? (
+        <div className="overflow-y-auto flex-1 p-2">
+          {combinedList.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm mt-4">هنوز چت یا گروهی ندارید.</p>
+          ) : (
+            combinedList.map((item) =>
+              item.type === 'chat' ? (
+                <div
+                  key={item.key}
+                  onClick={() => setActiveChat(item.user)}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
+                    activeChat === item.user ? 'bg-blue-50 border-r-4 border-blue-500' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg uppercase shadow-sm">
+                    {getDisplayName(item.user).charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800">{getDisplayName(item.user)}</h3>
+                    <p className="text-xs text-green-500">آنلاین</p>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  key={item.key}
+                  onClick={() => onSelectGroup(item.group)}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
+                    activeGroupId === item.group.id ? 'bg-green-50 border-r-4 border-green-500' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center text-green-700 font-bold text-lg shadow-sm">
+                    {item.group.name ? item.group.name.charAt(0) : "؟"}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800">{item.group.name || "گروه بدون‌نام"}</h3>
+                    <p className="text-xs text-gray-400">گروه</p>
+                  </div>
+                </div>
+              )
+            )
+          )}
+        </div>
+      ) : tab === 'chats' ? (
         <>
           <div className="p-3 border-b border-gray-200 bg-white">
             <form onSubmit={handleStartChat} className="flex gap-2">
