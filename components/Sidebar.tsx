@@ -184,8 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => onSelectGroup(item.group)}
                   className={`p-3 mb-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
                     activeGroupId === item.group.id ? 'bg-green-50 border-r-4 border-green-500' : 'hover:bg-gray-100'
-                  }`}
-                >
+                  }`} >
                   <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center text-green-700 font-bold text-lg shadow-sm">
                     {item.group.name ? item.group.name.charAt(0) : "؟"}
                   </div>

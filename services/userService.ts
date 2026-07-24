@@ -1,6 +1,6 @@
 import type { UserInfo } from "../types/UserInfo";
 
-const API = "http://localhost:8080";
+import { API_URL as API } from "../config/apiConfig";
 
 function getAuthHeaders() {
     const token = localStorage.getItem("chat_token");

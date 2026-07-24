@@ -1,4 +1,4 @@
-const API = "http://localhost:8080";
+import { API_URL as API } from '../config/apiConfig';
 
 function getAuthHeaders() {
 
